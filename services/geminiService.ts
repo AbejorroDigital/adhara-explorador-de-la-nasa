@@ -1,53 +1,21 @@
 export const generateCosmicInsight = async (title: string, explanation: string): Promise<AI_Insight> => {
-  const response = await ai.models.generateContent({
+  // --- LLAMADA 1: INVESTIGACIÓN (El cerebro científico) ---
+  // Aquí dejamos que Gemini use Google Search libremente. 
+  // No importa si genera esta parte interna en inglés.
+  const researchResponse = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Eres un astrofísico de habla hispana. Tu misión es analizar y traducir datos de la NASA.
-    
-    ENTRADA (INGLÉS):
-    Título: "${title}"
-    Explicación: "${explanation}"
-
-    TAREA:
-    1. Traduce y expande la información al ESPAÑOL.
-    2. Usa Google Search para buscar hitos científicos recientes (2023-2025).
-    3. Responde estrictamente en ESPAÑOL dentro del JSON.`,
-    config: {
-      tools: [{ googleSearch: {} }],
-      // Mantenemos una temperatura baja para evitar que se desvíe al inglés
-      temperature: 0.2,
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          // Usamos nombres en español para forzar el idioma en la IA
-          titulo: { type: Type.STRING },
-          explicacion: { type: Type.STRING },
-          reflexion: { type: Type.STRING },
-          contexto_cientifico: { type: Type.STRING },
-          perspectiva: { type: Type.STRING },
-          lecturas: { type: Type.ARRAY, items: { type: Type.STRING } }
-        },
-        required: ["titulo", "explicacion", "reflexion", "contexto_cientifico", "perspectiva", "lecturas"]
-      }
-    }
+    contents: `Thoroughly analyze this astronomical event for a scientific blog:
+    Title: "${title}"
+    Description: "${explanation}"
+    Use Google Search to find scientific context and news from 2023-2025.`,
+    config: { tools: [{ googleSearch: {} }] }
   });
 
-  const rawJson = JSON.parse(response.text.trim());
-
-  // --- EL MAPEO: Aquí protegemos tu lógica ---
-  // Convertimos los nombres en español de la IA a los nombres en inglés de tu App
-  const baseInsight: any = {
-    translatedTitle: rawJson.titulo,
-    translatedExplanation: rawJson.explicacion,
-    reflection: rawJson.reflexion,
-    scientificContext: rawJson.contexto_cientifico,
-    philosophicalPerspective: rawJson.perspectiva,
-    suggestedReading: rawJson.lecturas
-  };
-
-  // Extraer fuentes de Grounding
+  const rawAnalysis = researchResponse.text;
+  
+  // Extraemos las noticias del Grounding de la primera llamada
   const news: any[] = [];
-  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  const groundingChunks = researchResponse.candidates?.[0]?.groundingMetadata?.groundingChunks;
   if (groundingChunks) {
     groundingChunks.forEach((chunk: any) => {
       if (chunk.web) {
@@ -56,8 +24,42 @@ export const generateCosmicInsight = async (title: string, explanation: string):
     });
   }
 
+  // --- LLAMADA 2: TRADUCCIÓN Y ESTILO (El poeta divulgador) ---
+  // Esta llamada es pura y exclusivamente para el formateo final en español.
+  // Al no tener herramientas (tools), Gemini se concentra solo en el idioma.
+  const finalResponse = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Eres un traductor y divulgador científico de primer nivel. 
+    Tu objetivo es transformar el análisis adjunto en un JSON perfecto en español.
+    
+    ANÁLISIS TÉCNICO: ${rawAnalysis}
+    TÍTULO ORIGINAL: ${title}
+    DESCRIPCIÓN ORIGINAL: ${explanation}
+    
+    INSTRUCCIÓN CRÍTICA: Escribe TODO en español. No dejes términos en inglés.`,
+    config: {
+      temperature: 0.1, // Casi nada de aleatoriedad para evitar fugas de idioma
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          translatedTitle: { type: Type.STRING },
+          translatedExplanation: { type: Type.STRING },
+          reflection: { type: Type.STRING },
+          scientificContext: { type: Type.STRING },
+          philosophicalPerspective: { type: Type.STRING },
+          suggestedReading: { type: Type.ARRAY, items: { type: Type.STRING } }
+        },
+        required: ["translatedTitle", "translatedExplanation", "reflection", "scientificContext", "philosophicalPerspective", "suggestedReading"]
+      }
+    }
+  });
+
+  // Parseamos el resultado final que ya viene con tus llaves originales
+  const baseInsight = JSON.parse(finalResponse.text.trim());
+
   return {
     ...baseInsight,
     recentNews: news.slice(0, 3)
-  } as AI_Insight;
+  };
 };
