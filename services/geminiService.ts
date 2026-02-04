@@ -8,7 +8,7 @@ export const generateCosmicInsight = async (title: string, explanation: string):
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Analiza este fenómeno astronómico: "${title}". 
-    Proporciona una traducción al español y un análisis profundo.
+    Proporciona un análisis profundo y una traducción al español (Es muy importante que sea en español tu respuesta).
     Además, utiliza la búsqueda de Google para encontrar 2 o 3 enlaces a noticias o artículos científicos RECIENTES (2023-2025) específicamente sobre este objeto o misión espacial.`,
     config: {
       tools: [{ googleSearch: {} }],
