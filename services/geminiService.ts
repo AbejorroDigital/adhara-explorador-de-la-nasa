@@ -1,79 +1,59 @@
-
-import { GoogleGenAI, Type } from "@google/genai";
-import { AI_Insight } from "../types";
-
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export const generateCosmicInsight = async (title: string, explanation: string): Promise<AI_Insight> => {
-  const response = await ai.models.generateContent({
+  // --- LLAMADA 1: INVESTIGACIÓN Y ANÁLISIS ---
+  // Aquí no nos importa el idioma, solo extraer los datos y las fuentes.
+  const researchResponse = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Actúa como un astrónomo experto de habla hispana. Analiza este fenómeno". 
-    Toda tu respuesta DEBE estar en español, sin excepciones.
+    contents: `Analyze this astronomical event: "${title}". Description: "${explanation}". 
+    Use Google Search for recent scientific context (2023-2025).`,
+    config: { tools: [{ googleSearch: {} }] }
+  });
 
-    TU MISIÓN:
-    Recibirás datos en INGLÉS de la NASA y deberás transformarlos COMPLETAMENTE al ESPAÑOL.
+  const rawAnalysis = researchResponse.text;
+  
+  // Extraer fuentes de Grounding de la primera llamada
+  const news: any[] = [];
+  const groundingChunks = researchResponse.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  if (groundingChunks) {
+    groundingChunks.forEach((chunk: any) => {
+      if (chunk.web) {
+        news.push({ title: chunk.web.title, uri: chunk.web.uri });
+      }
+    });
+  }
+
+  // --- LLAMADA 2: TRADUCCIÓN Y FORMATEO ---
+  // Ahora enviamos el análisis crudo para que sea procesado estrictamente en español.
+  const finalResponse = await ai.models.generateContent({
+    model: "gemini-3-flash-preview",
+    contents: `Eres un divulgador científico experto en español. 
+    Toma el siguiente análisis y tradúcelo/redáctalo COMPLETAMENTE al ESPAÑOL.
     
-    DATOS DE ENTRADA (NASA):
-    - Título original: ${title}
-    - Descripción original: ${explanation}
+    ANÁLISIS A PROCESAR:
+    ${rawAnalysis}
     
-    INSTRUCCIONES DE SALIDA:
-    1. Traduce y expande el contenido al español con un tono poético y científico.
-    2. Los campos del JSON DEBEN estar escritos en español.
-    3. No utilices ni una sola palabra en inglés en tu respuesta final.
-    Usa la búsqueda de Google para encontrar fuentes científicas recientes (2023-2025).`,
+    DATOS ORIGINALES:
+    Título: ${title}
+    Explicación: ${explanation}
+    
+    REGLA DE ORO: No uses inglés en el resultado final.`,
     config: {
-      tools: [{ googleSearch: {} }],
       responseMimeType: "application/json",
       responseSchema: {
         type: Type.OBJECT,
         properties: {
-          translatedTitle: { 
-            type: Type.STRING, 
-            description: "El título del objeto traducido al español." 
-          },
-          translatedExplanation: { 
-            type: Type.STRING, 
-            description: "Explicación detallada en español." 
-          },
-          reflection: { 
-            type: Type.STRING, 
-            description: "Reflexión profunda redactada en español." 
-          },
-          scientificContext: { 
-            type: Type.STRING, 
-            description: "Contexto científico actual en español." 
-          },
-          philosophicalPerspective: { 
-            type: Type.STRING, 
-            description: "Perspectiva filosófica en español." 
-          },
-          suggestedReading: { 
-            type: Type.ARRAY, 
-            items: { type: Type.STRING },
-            description: "Títulos de lecturas recomendadas en español."
-          }
+          translatedTitle: { type: Type.STRING },
+          translatedExplanation: { type: Type.STRING },
+          reflection: { type: Type.STRING },
+          scientificContext: { type: Type.STRING },
+          philosophicalPerspective: { type: Type.STRING },
+          suggestedReading: { type: Type.ARRAY, items: { type: Type.STRING } }
         },
         required: ["translatedTitle", "translatedExplanation", "reflection", "scientificContext", "philosophicalPerspective", "suggestedReading"]
       }
     }
   });
 
-  const baseInsight = JSON.parse(response.text.trim());
-  
-  // Extraer fuentes de Grounding si existen
-  const news: any[] = [];
-  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
-  if (groundingChunks) {
-    groundingChunks.forEach((chunk: any) => {
-      if (chunk.web) {
-        news.push({
-          title: chunk.web.title,
-          uri: chunk.web.uri
-        });
-      }
-    });
-  }
+  const baseInsight = JSON.parse(finalResponse.text.trim());
 
   return {
     ...baseInsight,
