@@ -1,0 +1,5 @@
+{
+  "name": "Adhara - Explorador de la NASA",
+  "description": "Una aplicación React de alto rendimiento para explorar la Imagen Astronómica del Día de la NASA con análisis cósmicos impulsados por la IA de Gemini.",
+  "requestFramePermissions": []
+}
