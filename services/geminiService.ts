@@ -7,9 +7,20 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 export const generateCosmicInsight = async (title: string, explanation: string): Promise<AI_Insight> => {
   const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Actúa como un astrónomo experto de habla hispana. Analiza este fenómeno: "${title}". 
+    contents: `Actúa como un astrónomo experto de habla hispana. Analiza este fenómeno". 
     Toda tu respuesta DEBE estar en español, sin excepciones.
+
+    TU MISIÓN:
+    Recibirás datos en INGLÉS de la NASA y deberás transformarlos COMPLETAMENTE al ESPAÑOL.
     
+    DATOS DE ENTRADA (NASA):
+    - Título original: ${title}
+    - Descripción original: ${explanation}
+    
+    INSTRUCCIONES DE SALIDA:
+    1. Traduce y expande el contenido al español con un tono poético y científico.
+    2. Los campos del JSON DEBEN estar escritos en español.
+    3. No utilices ni una sola palabra en inglés en tu respuesta final.
     Usa la búsqueda de Google para encontrar fuentes científicas recientes (2023-2025).`,
     config: {
       tools: [{ googleSearch: {} }],
