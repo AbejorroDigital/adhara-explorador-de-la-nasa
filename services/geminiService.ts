@@ -1,45 +1,33 @@
+
+import { GoogleGenAI, Type } from "@google/genai";
+import { AI_Insight } from "../types";
+
+/**
+ * Inicialización del cliente de Google GenAI.
+ * La clave se obtiene automáticamente del entorno configurado.
+ */
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+/**
+ * @function generateCosmicInsight
+ * @description Utiliza Gemini 3 para realizar una traducción creativa, un análisis científico
+ * y una búsqueda web en tiempo real sobre el fenómeno astronómico proporcionado.
+ * 
+ * @param {string} title - Título original del APOD.
+ * @param {string} explanation - Explicación técnica original.
+ * @returns {Promise<AI_Insight>} Objeto con el análisis estructurado y noticias recientes.
+ */
 export const generateCosmicInsight = async (title: string, explanation: string): Promise<AI_Insight> => {
-  // --- LLAMADA 1: INVESTIGACIÓN (El cerebro científico) ---
-  // Aquí dejamos que Gemini use Google Search libremente. 
-  // No importa si genera esta parte interna en inglés.
-  const researchResponse = await ai.models.generateContent({
+  const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Thoroughly analyze this astronomical event for a scientific blog:
-    Title: "${title}"
-    Description: "${explanation}"
-    Use Google Search to find scientific context and news from 2023-2025.`,
-    config: { tools: [{ googleSearch: {} }] }
-  });
-
-  const rawAnalysis = researchResponse.text;
-  
-  // Extraemos las noticias del Grounding de la primera llamada
-  const news: any[] = [];
-  const groundingChunks = researchResponse.candidates?.[0]?.groundingMetadata?.groundingChunks;
-  if (groundingChunks) {
-    groundingChunks.forEach((chunk: any) => {
-      if (chunk.web) {
-        news.push({ title: chunk.web.title, uri: chunk.web.uri });
-      }
-    });
-  }
-
-  // --- LLAMADA 2: TRADUCCIÓN Y ESTILO (El poeta divulgador) ---
-  // Esta llamada es pura y exclusivamente para el formateo final en español.
-  // Al no tener herramientas (tools), Gemini se concentra solo en el idioma.
-  const finalResponse = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
-    contents: `Eres un traductor y divulgador científico de primer nivel. 
-    Tu objetivo es transformar el análisis adjunto en un JSON perfecto en español.
-    
-    ANÁLISIS TÉCNICO: ${rawAnalysis}
-    TÍTULO ORIGINAL: ${title}
-    DESCRIPCIÓN ORIGINAL: ${explanation}
-    
-    INSTRUCCIÓN CRÍTICA: Escribe TODO en español. No dejes términos en inglés.`,
+    contents: `Analiza este fenómeno astronómico: "${title}". 
+    Proporciona una traducción al español y un análisis profundo.
+    Además, utiliza la búsqueda de Google para encontrar 2 o 3 enlaces a noticias o artículos científicos RECIENTES (2023-2025) específicamente sobre este objeto o misión espacial.`,
     config: {
-      temperature: 0.1, // Casi nada de aleatoriedad para evitar fugas de idioma
+      // Activamos la herramienta de búsqueda de Google para obtener datos actualizados
+      tools: [{ googleSearch: {} }],
       responseMimeType: "application/json",
+      // Definimos el esquema estricto para asegurar que la IA responda en el formato esperado
       responseSchema: {
         type: Type.OBJECT,
         properties: {
@@ -55,11 +43,29 @@ export const generateCosmicInsight = async (title: string, explanation: string):
     }
   });
 
-  // Parseamos el resultado final que ya viene con tus llaves originales
-  const baseInsight = JSON.parse(finalResponse.text.trim());
+  // Parseo del contenido JSON generado por el modelo
+  const baseInsight = JSON.parse(response.text.trim());
+  
+  /**
+   * Extracción de Grounding Metadata:
+   * Aquí recuperamos los enlaces reales de Google Search que la IA utilizó
+   * para validar su respuesta o proporcionar contexto adicional.
+   */
+  const news: any[] = [];
+  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  if (groundingChunks) {
+    groundingChunks.forEach((chunk: any) => {
+      if (chunk.web) {
+        news.push({
+          title: chunk.web.title,
+          uri: chunk.web.uri
+        });
+      }
+    });
+  }
 
   return {
     ...baseInsight,
-    recentNews: news.slice(0, 3)
+    recentNews: news.slice(0, 3) // Retornamos máximo 3 fuentes relevantes
   };
 };

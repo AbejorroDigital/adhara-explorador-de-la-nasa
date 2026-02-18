@@ -1,13 +1,22 @@
 
 import { NASA_APOD } from '../types';
 
+/** 
+ * Configuración base para la comunicación con la API de la NASA.
+ * Se utiliza DEMO_KEY por defecto; para producción se recomienda una clave personalizada.
+ */
 const NASA_API_BASE = 'https://api.nasa.gov/planetary/apod';
 const API_KEY = 'DEMO_KEY'; 
 
 /**
- * Obtiene la fecha actual ajustada a la zona horaria de Nueva York (America/New_York),
- * que es la que utiliza la NASA. Esto evita pedir imágenes del "futuro"
- * cuando en la zona del usuario ya es el día siguiente.
+ * @function getNASADate
+ * @description Calcula una fecha segura para consultar la API de la NASA.
+ * @param {number} offsetDays - Días de retroceso desde hoy.
+ * @returns {string} Fecha formateada como YYYY-MM-DD en la zona horaria de Nueva York.
+ * 
+ * NOTA: Es crítico usar 'America/New_York' porque la NASA publica sus actualizaciones
+ * basándose en su hora local (EST/EDT). Sin esto, usuarios en zonas horarias adelantadas
+ * (como Europa o Asia) recibirían errores 400 al pedir una fecha que "aún no existe" para la NASA.
  */
 const getNASADate = (offsetDays = 1): string => {
   const now = new Date();
@@ -21,8 +30,15 @@ const getNASADate = (offsetDays = 1): string => {
   }).format(now);
 };
 
+/**
+ * @function fetchAPOD
+ * @description Recupera la imagen del día de la NASA para una fecha específica.
+ * @param {string} [date] - Fecha opcional (YYYY-MM-DD). Si no se provee, busca la más reciente.
+ * @param {AbortSignal} [signal] - Señal para cancelar la petición fetch si el componente se desmonta.
+ * @returns {Promise<NASA_APOD>} Datos de la imagen astronómica.
+ * @throws Error si la conexión falla o se alcanzan los límites de la API.
+ */
 export const fetchAPOD = async (date?: string, signal?: AbortSignal): Promise<NASA_APOD> => {
-  // Si no hay fecha, usamos la fecha segura de NY.
   const requestDate = date || getNASADate();
   
   const url = new URL(NASA_API_BASE);
@@ -32,8 +48,8 @@ export const fetchAPOD = async (date?: string, signal?: AbortSignal): Promise<NA
   try {
     const response = await fetch(url.toString(), { signal });
     
-    // Si falla con 400/404 y no pedimos una fecha específica (es decir, pedimos "hoy"),
-    // probablemente la imagen de hoy aún no se ha subido. Intentamos con ayer.
+    // Gestión automática de retrasos en la publicación:
+    // Si la NASA aún no ha subido la imagen de hoy, retrocedemos un día automáticamente.
     if ((response.status === 400 || response.status === 404) && !date) {
       console.warn("Imagen de hoy no disponible, intentando ayer...");
       return fetchAPOD(getNASADate(1), signal);
@@ -49,9 +65,7 @@ export const fetchAPOD = async (date?: string, signal?: AbortSignal): Promise<NA
 
     return response.json();
   } catch (err: any) {
-    if (err.name === 'AbortError') {
-      throw err; // Re-lanzar para manejar cancelación
-    }
+    if (err.name === 'AbortError') throw err;
     if (err.message.includes('Failed to fetch')) {
       throw new Error('No se pudo contactar con la NASA. Revisa tu conexión o bloqueadores de anuncios.');
     }
@@ -59,6 +73,12 @@ export const fetchAPOD = async (date?: string, signal?: AbortSignal): Promise<NA
   }
 };
 
+/**
+ * @function fetchRandomAPOD
+ * @description Obtiene una imagen astronómica aleatoria de los archivos históricos de la NASA.
+ * @param {AbortSignal} [signal] - Señal de cancelación.
+ * @returns {Promise<NASA_APOD[]>} Array con un objeto APOD aleatorio.
+ */
 export const fetchRandomAPOD = async (signal?: AbortSignal): Promise<NASA_APOD[]> => {
   const url = new URL(NASA_API_BASE);
   url.searchParams.append('api_key', API_KEY);
