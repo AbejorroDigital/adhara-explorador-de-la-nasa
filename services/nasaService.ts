@@ -1,31 +1,32 @@
 import { NASA_APOD } from '../types';
 
-// Intentamos capturar la clave de todas las fuentes posibles antes de rendirnos a la DEMO_KEY
+/**
+ * @function getApiKey
+ * @description Rastrea la clave de la API de la NASA a través de los posibles entornos de construcción.
+ * Previene que el empaquetador falle al buscar en las variables de Vite o Next.js.
+ */
 const getApiKey = (): string => {
   const key = 
     (import.meta.env?.VITE_APY_KEY) || 
     (process.env?.NEXT_PUBLIC_APY_KEY) || 
-    (process.env?.APY_KEY); // Caso raro donde se use SSR
+    (process.env?.APY_KEY);
 
   return key || 'DEMO_KEY'; 
 };
 
-const API_KEY = getApiKey();
-const NASA_API_BASE = 'https://api.nasa.gov/planetary/apod';
+/** * Única fuente de la verdad para la clave de la API en este archivo.
+ * Se exporta por si otros servicios la requieren.
+ */
+export const API_KEY = getApiKey();
 
-// Exportamos la clave si es necesaria en otros módulos, 
-// o la usamos internamente en las funciones de fetch.
-export const API_KEY = NASA_KEY;
+/** Configuración base de la API planetaria */
+const NASA_API_BASE = 'https://api.nasa.gov/planetary/apod';
 
 /**
  * @function getNASADate
  * @description Calcula una fecha segura para consultar la API de la NASA.
  * @param {number} offsetDays - Días de retroceso desde hoy.
  * @returns {string} Fecha formateada como YYYY-MM-DD en la zona horaria de Nueva York.
- * 
- * NOTA: Es crítico usar 'America/New_York' porque la NASA publica sus actualizaciones
- * basándose en su hora local (EST/EDT). Sin esto, usuarios en zonas horarias adelantadas
- * (como Europa o Asia) recibirían errores 400 al pedir una fecha que "aún no existe" para la NASA.
  */
 const getNASADate = (offsetDays = 1): string => {
   const now = new Date();
@@ -42,10 +43,6 @@ const getNASADate = (offsetDays = 1): string => {
 /**
  * @function fetchAPOD
  * @description Recupera la imagen del día de la NASA para una fecha específica.
- * @param {string} [date] - Fecha opcional (YYYY-MM-DD). Si no se provee, busca la más reciente.
- * @param {AbortSignal} [signal] - Señal para cancelar la petición fetch si el componente se desmonta.
- * @returns {Promise<NASA_APOD>} Datos de la imagen astronómica.
- * @throws Error si la conexión falla o se alcanzan los límites de la API.
  */
 export const fetchAPOD = async (date?: string, signal?: AbortSignal): Promise<NASA_APOD> => {
   const requestDate = date || getNASADate();
@@ -57,8 +54,7 @@ export const fetchAPOD = async (date?: string, signal?: AbortSignal): Promise<NA
   try {
     const response = await fetch(url.toString(), { signal });
     
-    // Gestión automática de retrasos en la publicación:
-    // Si la NASA aún no ha subido la imagen de hoy, retrocedemos un día automáticamente.
+    // Gestión automática de retrasos en la publicación
     if ((response.status === 400 || response.status === 404) && !date) {
       console.warn("Imagen de hoy no disponible, intentando ayer...");
       return fetchAPOD(getNASADate(1), signal);
@@ -67,7 +63,7 @@ export const fetchAPOD = async (date?: string, signal?: AbortSignal): Promise<NA
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       if (response.status === 429) {
-        throw new Error('Límite de API alcanzado (DEMO_KEY). Intenta de nuevo más tarde.');
+        throw new Error('Límite de API alcanzado. Verifica que tu clave personalizada esté activa.');
       }
       throw new Error(errorData.msg || `Error de la NASA (${response.status})`);
     }
@@ -84,9 +80,7 @@ export const fetchAPOD = async (date?: string, signal?: AbortSignal): Promise<NA
 
 /**
  * @function fetchRandomAPOD
- * @description Obtiene una imagen astronómica aleatoria de los archivos históricos de la NASA.
- * @param {AbortSignal} [signal] - Señal de cancelación.
- * @returns {Promise<NASA_APOD[]>} Array con un objeto APOD aleatorio.
+ * @description Obtiene una imagen astronómica aleatoria.
  */
 export const fetchRandomAPOD = async (signal?: AbortSignal): Promise<NASA_APOD[]> => {
   const url = new URL(NASA_API_BASE);
