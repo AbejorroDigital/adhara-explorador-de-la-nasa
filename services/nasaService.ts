@@ -6,7 +6,7 @@ import { NASA_APOD } from '../types';
  * Se utiliza DEMO_KEY por defecto; para producción se recomienda una clave personalizada.
  */
 const NASA_API_BASE = 'https://api.nasa.gov/planetary/apod';
-const API_KEY = 'DEMO_KEY'; 
+const API_KEY = null; 
 
 /**
  * @function getNASADate
