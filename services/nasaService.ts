@@ -1,11 +1,23 @@
 import { NASA_APOD } from '../types';
-const API_KEY = (import.meta.env?.VITE_NASA_API_KEY || process.env.NEXT_PUBLIC_NASA_API_KEY || 'API_KEY') as string;
-/** 
- * Configuración base para la comunicación con la API de la NASA.
- * Se utiliza DEMO_KEY por defecto; para producción se recomienda una clave personalizada.
+
+/**
+ * Determinamos la clave de la API de forma dinámica.
+ * Intentamos recuperar 'APY_KEY' (según tu configuración en Vercel) 
+ * con los prefijos estándar de los frameworks modernos.
+ */
+const NASA_KEY = (
+  import.meta.env?.VITE_APY_KEY || 
+  process.env?.NEXT_PUBLIC_APY_KEY || 
+  'DEMO_KEY'
+) as string;
+
+/** * Configuración base para la comunicación con la API de la NASA.
  */
 const NASA_API_BASE = 'https://api.nasa.gov/planetary/apod';
-const API_KEY = API_KEY; 
+
+// Exportamos la clave si es necesaria en otros módulos, 
+// o la usamos internamente en las funciones de fetch.
+export const API_KEY = NASA_KEY;
 
 /**
  * @function getNASADate
