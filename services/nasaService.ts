@@ -1,12 +1,12 @@
 
 import { NASA_APOD } from '../types';
-
+const API_KEY = (import.meta.env?.VITE_NASA_API_KEY || process.env.NEXT_PUBLIC_NASA_API_KEY || 'API_KEY') as string;
 /** 
  * Configuración base para la comunicación con la API de la NASA.
  * Se utiliza DEMO_KEY por defecto; para producción se recomienda una clave personalizada.
  */
 const NASA_API_BASE = 'https://api.nasa.gov/planetary/apod';
-const API_KEY = null; 
+const API_KEY = API_KEY; 
 
 /**
  * @function getNASADate
