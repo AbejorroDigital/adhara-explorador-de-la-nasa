@@ -11,7 +11,7 @@ const getApiKey = (): string => {
     (process.env?.NEXT_PUBLIC_APY_KEY) || 
     (process.env?.APY_KEY);
 
-  return key || 'DEMO_KEY'; 
+  return key; 
 };
 
 /** * Única fuente de la verdad para la clave de la API en este archivo.
