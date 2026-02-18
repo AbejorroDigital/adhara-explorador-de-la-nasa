@@ -18,16 +18,31 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
  * @returns {Promise<AI_Insight>} Objeto con el análisis estructurado y noticias recientes.
  */
 export const generateCosmicInsight = async (title: string, explanation: string): Promise<AI_Insight> => {
-  const response = await ai.models.generateContent({
+  // 1. Instanciamos el modelo con la configuración de sistema correcta
+  const model = ai.getGenerativeModel({ 
     model: "gemini-3-flash-preview",
-    contents: `Analiza este fenómeno astronómico: "${title}". 
-    Proporciona una traducción al español y un análisis profundo.
-    Además, utiliza la búsqueda de Google para encontrar 2 o 3 enlaces a noticias o artículos científicos RECIENTES (2023-2025) específicamente sobre este objeto o misión espacial.`,
+    systemInstruction: "Eres un astrofísico y divulgador científico. Tu misión es traducir y analizar datos de la NASA. REGLA CRÍTICA: Toda tu respuesta DEBE estar en español, sin excepciones. Debes respetar estrictamente el esquema JSON proporcionado."
+  });
+
+  const result = await model.generateContent({
+    contents: [
+      {
+        role: "user",
+        parts: [{
+          text: `Analiza este fenómeno astronómico:
+          Título original: "${title}"
+          Descripción técnica original: "${explanation}"
+          
+          Instrucciones adicionales:
+          1. Traduce fielmente al español.
+          2. Realiza un análisis profundo y filosófico.
+          3. Busca noticias científicas recientes (2023-2026) sobre este objeto.`
+        }]
+      }
+    ],
     config: {
-      // Activamos la herramienta de búsqueda de Google para obtener datos actualizados
       tools: [{ googleSearch: {} }],
       responseMimeType: "application/json",
-      // Definimos el esquema estricto para asegurar que la IA responda en el formato esperado
       responseSchema: {
         type: Type.OBJECT,
         properties: {
@@ -43,16 +58,13 @@ export const generateCosmicInsight = async (title: string, explanation: string):
     }
   });
 
-  // Parseo del contenido JSON generado por el modelo
-  const baseInsight = JSON.parse(response.text.trim());
+  // 2. Acceso correcto al texto generado
+  const responseText = result.response.text();
+  const baseInsight = JSON.parse(responseText.trim());
   
-  /**
-   * Extracción de Grounding Metadata:
-   * Aquí recuperamos los enlaces reales de Google Search que la IA utilizó
-   * para validar su respuesta o proporcionar contexto adicional.
-   */
   const news: any[] = [];
-  const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  const groundingChunks = result.response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+  
   if (groundingChunks) {
     groundingChunks.forEach((chunk: any) => {
       if (chunk.web) {
@@ -66,6 +78,6 @@ export const generateCosmicInsight = async (title: string, explanation: string):
 
   return {
     ...baseInsight,
-    recentNews: news.slice(0, 3) // Retornamos máximo 3 fuentes relevantes
+    recentNews: news.slice(0, 3)
   };
 };
