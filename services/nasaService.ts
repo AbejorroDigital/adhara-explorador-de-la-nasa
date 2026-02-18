@@ -1,4 +1,3 @@
-
 import { NASA_APOD } from '../types';
 const API_KEY = (import.meta.env?.VITE_NASA_API_KEY || process.env.NEXT_PUBLIC_NASA_API_KEY || 'API_KEY') as string;
 /** 
